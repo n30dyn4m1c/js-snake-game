@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Classic Snake Game</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
     <style>
         body {
@@ -80,7 +80,7 @@
         }
         /* Touch controls */
         .touch-controls {
-            display: flex;
+            display: none; /* Hidden by default, shown via JS for touch devices */
             flex-direction: column;
             align-items: center;
             margin-top: 1.5rem;
@@ -88,7 +88,8 @@
         .touch-button {
             background-color: #f6ad55; /* Orange for touch buttons */
             color: #1a202c;
-            padding: 1rem;
+            width: 4rem;
+            height: 4rem;
             border-radius: 50%;
             font-size: 2rem;
             font-weight: bold;
@@ -98,6 +99,9 @@
             border: none;
             outline: none;
             user-select: none; /* Prevent text selection on tap */
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
         .touch-button:hover {
             background-color: #ed8936;
@@ -118,6 +122,17 @@
         }
 
         /* Responsive adjustments for smaller screens */
+        @media (max-width: 768px) {
+             .game-container {
+                padding: 1rem;
+             }
+             canvas {
+                /* Make canvas responsive on smaller screens */
+                width: 90vw;
+                height: 90vw;
+             }
+        }
+
         @media (max-width: 640px) {
             .game-info {
                 font-size: 1rem;
@@ -130,10 +145,9 @@
                 font-size: 0.9rem;
             }
             .touch-button {
-                padding: 0.75rem;
-                font-size: 1.5rem;
                 width: 3.5rem;
                 height: 3.5rem;
+                font-size: 1.5rem;
             }
             .touch-spacer {
                 width: 3.5rem;
@@ -148,14 +162,15 @@
             <div>Score: <span id="score">0</span></div>
             <div>High Score: <span id="highScore">0</span></div>
         </div>
-        <canvas id="gameCanvas" width="400" height="400"></canvas>
+        <!-- UPDATED: Canvas size increased to 600x600 -->
+        <canvas id="gameCanvas" width="600" height="600"></canvas>
         <div id="gameMessage" class="game-message"></div>
         <div class="button-container">
             <button id="startButton" class="game-button">Start Game</button>
             <button id="resetButton" class="game-button" style="display: none;">Reset Game</button>
         </div>
 
-        <div class="touch-controls hidden sm:flex">
+        <div class="touch-controls">
             <div class="touch-row">
                 <div class="touch-spacer"></div>
                 <button id="upButton" class="touch-button">⬆️</button>
@@ -211,10 +226,11 @@
 
         // --- Game Initialization ---
         function initializeGame() {
+            // UPDATED: Snake starts in the center of the new 600x600 canvas
             snake = [
-                { x: 10 * GRID_SIZE, y: 10 * GRID_SIZE }, // Head
-                { x: 9 * GRID_SIZE, y: 10 * GRID_SIZE },
-                { x: 8 * GRID_SIZE, y: 10 * GRID_SIZE }
+                { x: 15 * GRID_SIZE, y: 15 * GRID_SIZE }, // Head
+                { x: 14 * GRID_SIZE, y: 15 * GRID_SIZE },
+                { x: 13 * GRID_SIZE, y: 15 * GRID_SIZE }
             ];
             food = {}; // Food will be placed randomly
             score = 0;
@@ -225,8 +241,8 @@
             gameMessage.style.display = 'none'; // Hide game over message
             startButton.style.display = 'block'; // Show start button
             resetButton.style.display = 'none'; // Hide reset button
-            draw(); // Draw initial state
             placeFood(); // Place initial food
+            draw(); // Draw initial state
             updateTouchControlsVisibility(); // Show/hide touch controls based on screen size
         }
 
@@ -289,8 +305,8 @@
         function draw() {
             clearCanvas();
             drawGrid();
-            drawSnake();
-            drawFood();
+            if(snake) drawSnake();
+            if(food) drawFood();
         }
 
         // --- Game Logic ---
@@ -391,13 +407,13 @@
             const goingLeft = direction === 'LEFT';
             const goingRight = direction === 'RIGHT';
 
-            if (keyPressed === 'ArrowLeft' && !goingRight) {
+            if ((keyPressed === 'ArrowLeft' || keyPressed.toLowerCase() === 'a') && !goingRight) {
                 direction = 'LEFT';
-            } else if (keyPressed === 'ArrowUp' && !goingDown) {
+            } else if ((keyPressed === 'ArrowUp' || keyPressed.toLowerCase() === 'w') && !goingDown) {
                 direction = 'UP';
-            } else if (keyPressed === 'ArrowRight' && !goingLeft) {
+            } else if ((keyPressed === 'ArrowRight' || keyPressed.toLowerCase() === 'd') && !goingLeft) {
                 direction = 'RIGHT';
-            } else if (keyPressed === 'ArrowDown' && !goingUp) {
+            } else if ((keyPressed === 'ArrowDown' || keyPressed.toLowerCase() === 's') && !goingUp) {
                 direction = 'DOWN';
             }
         }
@@ -408,8 +424,14 @@
             startButton.style.display = 'none'; // Hide start button
             resetButton.style.display = 'none'; // Hide reset button
             gameMessage.style.display = 'none'; // Hide message
-            initializeGame(); // Re-initialize game state for a fresh start
-            gameInterval = setInterval(mainLoop, 100); // Start game loop (100ms interval)
+            // Re-initialize game state for a fresh start, but don't reset high score display
+            const currentHighScoreTemp = currentHighScore;
+            initializeGame();
+            currentHighScore = currentHighScoreTemp;
+            highScoreDisplay.textContent = currentHighScore;
+            
+            // UPDATED: Game speed is slower (150ms interval instead of 100ms)
+            gameInterval = setInterval(mainLoop, 150); 
         }
 
         function resetGame() {
@@ -421,6 +443,9 @@
 
         // --- Touch Control Handling ---
         function handleTouchDirection(newDirection) {
+             if (changingDirection) return;
+             changingDirection = true;
+
             if (gameRunning) {
                 const goingUp = direction === 'UP';
                 const goingDown = direction === 'DOWN';
@@ -432,9 +457,6 @@
                 else if (newDirection === 'UP' && !goingDown) direction = 'UP';
                 else if (newDirection === 'RIGHT' && !goingLeft) direction = 'RIGHT';
                 else if (newDirection === 'DOWN' && !goingUp) direction = 'DOWN';
-            } else {
-                // If game not running, consider it a start signal if a direction is pressed
-                startGame();
             }
         }
 
@@ -446,14 +468,13 @@
         // Prevent default touch actions (like scrolling) on canvas
         canvas.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
 
-        // Show/hide touch controls based on screen width
+        // Show/hide touch controls based on whether it's a touch device
         function updateTouchControlsVisibility() {
-            if (window.innerWidth < 768) { // Tailwind's 'md' breakpoint is 768px
-                touchControls.classList.remove('hidden');
-                touchControls.classList.add('flex');
+            const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+            if (isTouchDevice) {
+                touchControls.style.display = 'flex';
             } else {
-                touchControls.classList.add('hidden');
-                touchControls.classList.remove('flex');
+                touchControls.style.display = 'none';
             }
         }
 
